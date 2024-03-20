@@ -2,9 +2,10 @@ import threading
 import requests
 from colorama import Fore, Style
 import os
+import time
 
 os.system("cls")
-lc = f"{Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.LIGHTMAGENTA_EX}N{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}"
+lc = f"{Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.LIGHTMAGENTA_EX}+{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}"
 tokens = []
 valid_tokens_count = 0
 invalid_tokens_count = 0
@@ -15,7 +16,7 @@ phone_verified_count = 0
 full_verified_count = 0
 
 def check_token_verification(token):
-    global tokens, valid_tokens_count, invalid_tokens_count, nitro_count, mail_verified_count, unclaimed_count, full_verified_count, phone_verified_count
+    global valid_tokens_count, invalid_tokens_count, nitro_count, mail_verified_count, unclaimed_count, full_verified_count, phone_verified_count
     headers = {
         'Authorization': token
     }
@@ -23,6 +24,7 @@ def check_token_verification(token):
     response = requests.get('https://discord.com/api/v10/users/@me', headers=headers)
 
     if response.status_code == 200:
+        valid_tokens_count += 1
         data = response.json()
         email_verification = data.get('verified', False)
         phone_verification = bool(data.get('phone'))
@@ -40,6 +42,7 @@ def check_token_verification(token):
             unclaimed_count += 1
             return f"Unclaimed"
     elif response.status_code == 401:
+        invalid_tokens_count += 1
         return f"invalid"
     else:
         return f"error"
@@ -67,7 +70,9 @@ def save_tokens_to_file(tokens, filename):
             file.write(f"{token}\n")
     
 def check_token(token):
-    global tokens, valid_tokens_count, invalid_tokens_count, nitro_count, mail_verified_count, unclaimed_count, full_verified_count
+    global tokens
+    global valid_tokens_count, invalid_tokens_count, nitro_count, mail_verified_count, unclaimed_count, full_verified_count
+
     headers = {
         'Authorization': token
     }
@@ -90,12 +95,19 @@ def check_token(token):
         except Exception as e:
             print(f"Error processing JSON: {e}")
             return False
-    else:
+    elif response.status_code == 401:
         invalid_tokens_count += 1
         print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.RED}INVALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+    elif response.status_code == 429:  # Rate limited
+        retry_after = response.json().get("retry_after", {})
+        print(f'{lc} {Fore.LIGHTBLUE_EX}Token={Fore.WHITE}{token[:20]}...{Fore.RESET} is rate limited. Retrying after {retry_after} seconds...')
+        time.sleep(retry_after)
+        return "rate_limited"
+    else:
+        print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.RED}ERROR{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
 
 def main():
-    os.system("Title Token checker | discord.gg/nekito")
+    os.system("Title Token checker discord.gg/nekito")
     print(Fore.LIGHTMAGENTA_EX + '''
     discord.gg/nekito (fuck yo ascii)
     ''')
@@ -103,7 +115,7 @@ def main():
         tokens = file.readlines()
 
     tokens = [token.strip() for token in tokens]
-    num_threads = 8
+    num_threads = 4
     total_tokens = len(tokens)
     tokens_per_thread = total_tokens // num_threads
 
@@ -112,6 +124,7 @@ def main():
     mail_verified_tokens = []
     phone_verified_tokens = []
     nitro_tokens = []
+    valid_tokens = []
 
     def check_tokens_worker(start, end):
         for i in range(start, end):
@@ -127,7 +140,14 @@ def main():
             if nitro > 0:
                 nitro_tokens.append(token)
 
-            check_token(token)
+            while True:
+                response = check_token(token)
+                if response == "rate_limited":
+                    continue
+                break
+
+            if response:
+                valid_tokens.append(token)
 
     threads = []
     for i in range(num_threads):
@@ -144,6 +164,7 @@ def main():
     save_tokens_to_file(mail_verified_tokens, "Mail Verified Tokens.txt")
     save_tokens_to_file(phone_verified_tokens, "Phone Verified Tokens.txt")
     save_tokens_to_file(nitro_tokens, "Nitro Tokens.txt")
+    save_tokens_to_file(valid_tokens, "Valid Tokens.txt")
 
     print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Uncalimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) if full_verified_count > 0 else ''}")
 
