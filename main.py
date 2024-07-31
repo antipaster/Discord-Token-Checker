@@ -3,6 +3,7 @@ import requests
 from colorama import Fore, Style
 import os
 import time
+import datetime
 
 os.system("cls")
 lc = f"{Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.LIGHTMAGENTA_EX}+{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}"
@@ -15,7 +16,28 @@ mail_verified_count = 0
 phone_verified_count = 0
 full_verified_count = 0
 
-results = []  # List to store results
+results = []  
+BADGES = {
+    1 << 0: "DISCORD_EMPLOYEE",
+    1 << 1: "PARTNERED_SERVER_OWNER",
+    1 << 2: "HYPESQUAD_EVENTS",
+    1 << 3: "BUG_HUNTER_LEVEL_1",
+    1 << 4: "HOUSE_BRAVERY",
+    1 << 5: "HOUSE_BRILLIANCE",
+    1 << 6: "HOUSE_BALANCE",
+    1 << 7: "EARLY_SUPPORTER",
+    1 << 8: "TEAM_USER",
+    1 << 9: "BUG_HUNTER_LEVEL_2",
+    1 << 10: "VERIFIED_BOT",
+    1 << 11: "EARLY_VERIFIED_BOT_DEVELOPER",
+    1 << 12: "DISCORD_CERTIFIED_MODERATOR",
+    1 << 13: "DISCORD_PARTNER",
+    1 << 14: "VERIFIED_DEVELOPER",
+    1 << 15: "FREELANCER",
+
+}
+
+
 
 def check_token_verification(token):
     global mail_verified_count, phone_verified_count, full_verified_count, unclaimed_count
@@ -69,6 +91,19 @@ def save_tokens_to_file(tokens, filename):
         for token in tokens:
             file.write(f"{token}\n")
 
+def extract_creation_year(user_id):
+    # Discord IDs are Snowflakes; the first 42 bits are a timestamp in milliseconds since Discord Epoch (2015-01-01)
+    discord_epoch = 1420070400000
+    timestamp = (int(user_id) >> 22) + discord_epoch
+    creation_date = datetime.datetime.utcfromtimestamp(timestamp / 1000)
+    return creation_date.year
+
+def get_badges(flags):
+    badge_list = [name for value, name in BADGES.items() if flags & value]
+    return ', '.join(badge_list) if badge_list else "No Badges"
+
+
+
 def check_token(token):
     global valid_tokens_count, invalid_tokens_count, nitro_count
 
@@ -80,19 +115,21 @@ def check_token(token):
     if response.status_code == 200:
         valid_tokens_count += 1
         user_data = response.json()
+        user_id = user_data['id']
+        creation_year = extract_creation_year(user_id)
         premium_type = user_data.get('premium_type', 0)
+        public_flags = user_data.get('public_flags', 0) 
+        badges = get_badges(public_flags)
         verification = check_token_verification(token)
         boosts = check_boosts(token)
-        nitro = f"{Style.BRIGHT}{Fore.RED}NO_NITRO" if premium_type == 0 else f"{Style.BRIGHT}{Fore.GREEN}NITRO"
+        nitro = "NITRO" if premium_type != 0 else "NO NITRO"
         if premium_type != 0:
             nitro_count += 1
-
-        result = f"{token} | {verification}"
+        result = f"{token} | {verification} | Creation Year: {creation_year} | Nitro: {nitro} | Boosts: {boosts} | Badges: {badges}"
         results.append(result)
 
-       # time.sleep(0.1)
-        print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{boosts}_BOOSTS{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{nitro}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{verification}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} ')
-        return token, verification, boosts, nitro
+        print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{boosts}_BOOSTS{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{nitro}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{verification}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Creation Year: {creation_year}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Badges: {badges}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+        return token, verification, boosts, nitro, creation_year, badges
     elif response.status_code == 401:
         invalid_tokens_count += 1
         print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.RED}INVALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
