@@ -1,3 +1,10 @@
 # Discord-Token-Checker
 
-for educational purposes only
+works pretty good has
+verification capture,
+nitro capture,
+boosts capture,
+year capture,
+badges capture,
+
+
