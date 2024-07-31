@@ -8,3 +8,4 @@ year capture,
 badges capture,
 
 
+![xd](WindowsTerminal_IiabwKLLmf.png)
