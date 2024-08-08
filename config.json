@@ -1,13 +1,14 @@
 {
+    "sort_by_worth": true,
     "checks": {
-        "verification": true,
-        "boosts": true,
-        "billing_info": true,
-        "gifts": true,
-        "promos": true,
-        "friends_count": true,
-        "nitro": true,
-        "creation_year": true,
-        "guilds_count": true
+        "verification": false,
+        "boosts": false,
+        "billing_info": false,
+        "gifts": false,
+        "promos": false,
+        "friends_count": false,
+        "guilds_count": false,
+        "nitro": false,
+        "creation_year": true
     }
 }
