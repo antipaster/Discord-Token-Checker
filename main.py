@@ -94,30 +94,34 @@ def check_boosts(token, proxy=None):
     except requests.RequestException as e:
         print(f"Error in check_boosts: {e}")
         return 0
-
-def check_billing_info(token, proxy=None):
-    global billing_info_count
+def check_billing_info(token, proxy):
     headers = {
         'Authorization': token
     }
-    try:
-        response = requests.get('https://discord.com/api/v10/users/@me/billing/payment-sources', headers=headers, proxies=proxy)
-        if response.status_code == 200:
-            data = response.json()
-            billing_info_count += len(data)
-            return len(data)
-        else:
-            return 0
-    except requests.RequestException as e:
-        print(f"Error in check_billing_info: {e}")
-        return 0
+
+    response = requests.get('https://discord.com/api/v9/users/@me/billing/payment-sources', headers=headers, proxies=proxy)
+    
+    if response.status_code == 200:
+        data = response.json()
+        if not data: 
+            return []  
+        
+        payment_methods = []
+        for source in data:
+            brand = source.get('brand', 'Unknown').title()
+            invalid = source.get('invalid', False)
+            payment_methods.append(f"{brand} {'Invalid' if invalid else 'Valid'}")
+        return payment_methods
+    return [] 
+
+
 
 def check_gifts(token, proxy=None):
     headers = {
         'Authorization': token
     }
     try:
-        response = requests.get('https://discord.com/api/v10/users/@me/entitlements/gift-codes', headers=headers, proxies=proxy)
+        response = requests.get('https://discord.com/api/v9/users/@me/entitlements/gifts?country_code=PL', headers=headers, proxies=proxy)
         if response.status_code == 200:
             data = response.json()
             gift_codes = [gift['code'] for gift in data]
@@ -137,14 +141,27 @@ def check_promos(token, proxy=None):
         response = requests.get('https://discord.com/api/v9/users/@me/outbound-promotions/codes?locale=fr', headers=headers, proxies=proxy)
         if response.status_code == 200:
             data = response.json()
-            promo_codes = [promo['code'] for promo in data]
-            promos.extend(promo_codes)
-            return promo_codes
+            promo_details = [{
+                'code': promo['code'],
+                'name': promo['promotion']['outbound_title'],
+                'claimed_at': promo.get('claimed_at', 'Unclaimed'),
+                'end_date': promo['promotion']['outbound_redemption_end_date']
+            } for promo in data]
+            promos.extend(promo_details)
+            return promo_details
         else:
             return []
     except requests.RequestException as e:
         print(f"Error in check_promos: {e}")
         return []
+
+
+def save_promos_to_file(promos, filename):
+    with open(filename, "w", encoding="utf-8") as file:
+        for promo in promos:
+            file.write(f"{promo['code']} | {promo['name']} | {promo['claimed_at']} | {promo['end_date']}\n")
+
+       
 
 def save_tokens_to_file(tokens, filename):
     with open(filename, "w", encoding="utf-8") as file:
@@ -158,7 +175,7 @@ def extract_creation_year(user_id):
     return creation_date.year
 
 def check_token(token, proxies=None):
-    global valid_tokens_count, invalid_tokens_count, nitro_count
+    global valid_tokens_count, invalid_tokens_count, nitro_count, billing_info_count
 
     proxy = get_proxy(proxies)
     headers = {
@@ -173,33 +190,50 @@ def check_token(token, proxies=None):
             user_id = user_data['id']
             creation_year = extract_creation_year(user_id)
             premium_type = user_data.get('premium_type', 0)
-            public_flags = user_data.get('public_flags', 0) 
+            public_flags = user_data.get('public_flags', 0)
             verification = check_token_verification(token, proxy)
             boosts = check_boosts(token, proxy)
-            billing_info = check_billing_info(token, proxy)  
-            gift_codes = check_gifts(token, proxy) 
-            promo_codes = check_promos(token, proxy) 
+            payment_methods = check_billing_info(token, proxy)
+            billing_info_count = len(payment_methods)  # Update billing_info_count correctly
+            billing_info_display = billing_info_count if billing_info_count > 0 else 0
+            gift_codes = check_gifts(token, proxy)
+            promo_codes = check_promos(token, proxy)
             nitro = "NITRO" if premium_type != 0 else "NO NITRO"
             if premium_type != 0:
                 nitro_count += 1
-            result = f"{token} | {verification} | Creation Year: {creation_year} | Nitro: {nitro} | Boosts: {boosts} | Billing Info: {billing_info} | Gifts: {len(gift_codes)} | Promos: {len(promo_codes)}"
+
+            result = (f"{token} | {verification} | Creation Year: {creation_year} | Nitro: {nitro} | Boosts: {boosts} | "
+                      f"Billing Info: {billing_info_display} ({', '.join(payment_methods) if payment_methods else 'None'}) | Gifts: {len(gift_codes)} | Promos: {len(promo_codes)}")
             results.append(result)
 
-            print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{boosts}_BOOSTS{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{nitro}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}{verification}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Creation Year: {creation_year}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Billing Info: {billing_info}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Gifts: {len(gift_codes)}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Promos: {len(promo_codes)}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
-            return token, verification, boosts, nitro, creation_year, billing_info, gift_codes, promo_codes
+            print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.BLUE}{boosts}_BOOSTS{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.BLUE}{nitro}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.BLUE}{verification}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.BLUE}Creation Year: {creation_year}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.BLUE}Billing Info: {billing_info_display} ({", ".join(payment_methods) if payment_methods else "None"}){Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}'
+                  f'{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Gifts: {len(gift_codes)}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}'
+                  f'{Style.BRIGHT}[{Fore.BLUE}Promos: {len(promo_codes)}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+            return token, verification, boosts, nitro, creation_year, billing_info_display, gift_codes, promo_codes
         elif response.status_code == 401:
             invalid_tokens_count += 1
-            print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.RED}INVALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+            print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.RED}INVALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
         elif response.status_code == 429:  # Rate limited
             retry_after = response.json().get("retry_after", 0)
             print(f'{lc} {Fore.LIGHTBLUE_EX}Token={Fore.WHITE}{token[:20]}...{Fore.RESET} is rate limited. Retrying after {retry_after} seconds...')
             time.sleep(retry_after)
             return check_token(token, proxies)
         else:
-            print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.RED}ERROR{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+            print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                  f'[{Fore.RED}ERROR{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
     except requests.RequestException as e:
         print(f"Error in check_token: {e}")
     return None
+
+
+
 
 def main():
     os.system("Title Token checker discord.gg/nekito")
@@ -259,9 +293,7 @@ def main():
         for gift in gifts:
             file.write(f"{gift}\n")
 
-    with open("promos.txt", "w", encoding="utf-8") as file:
-        for promo in promos:
-            file.write(f"{promo}\n")
+    save_promos_to_file(promos, "promos.txt")
 
     print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}")
 
