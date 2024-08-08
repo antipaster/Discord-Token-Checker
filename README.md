@@ -9,6 +9,7 @@ This script is designed to check discord tokens, gather information about the ac
 - Checks for billing information associated with the account.
 - Retrieves gift codes and promotion codes associated with the account.
 - Supports the use of proxies.
+- You can change the checks.
 
 ## Requirements
 
