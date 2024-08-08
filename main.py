@@ -281,7 +281,7 @@ def main():
     ''' + Fore.RESET)
 
     use_proxies = input("Do you want to use proxies? (y/n): ").strip().lower() == 'y'
-
+    time_till_check = float(input("Thread Sleep time: "))
     if use_proxies:
         proxies = load_proxies("proxies.txt")
         proxy_pool = cycle(proxies.values())
@@ -300,6 +300,7 @@ def main():
         for i in range(start, end):
             token = tokens[i]
             result = check_token(token, proxy_pool)
+            time.sleep(time_till_check)
         
     threads = []
     for i in range(num_threads):
