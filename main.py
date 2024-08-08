@@ -28,9 +28,13 @@ results = []
 gifts = [] 
 promos = [] 
 
+config = None
+
 def load_config(filename='config.json'):
+    global config
     with open(filename, 'r') as file:
-        return json.load(file)
+        config = json.load(file)
+    return config
 
 def load_proxies(filename):
     with open(filename, "r") as file:
@@ -226,6 +230,51 @@ def save_promos_to_file(promos, filename):
         for promo in promos:
             file.write(f"{promo['code']} | {promo['name']} | {promo['claimed_at']} | {promo['end_date']}\n")
 
+def calculate_score(user_data, config):
+    score = 0
+    current_year = datetime.datetime.utcnow().year
+
+    if user_data.get('premium_type', 0) != 0:
+        score += 50 
+
+
+    if config['checks'].get('boosts', False):
+        boosts = check_boosts(user_data['token'])
+        score += boosts * 10
+
+   
+    if config['checks'].get('billing_info', False):
+        billing_info = check_billing_info(user_data['token'])
+        score += len(billing_info) * 5
+
+  
+    if config['checks'].get('gifts', False):
+        gifts_count = len(check_gifts(user_data['token']))
+        score += gifts_count * 5
+
+   
+    if config['checks'].get('promos', False):
+        promos_count = len(check_promos(user_data['token']))
+        score += promos_count * 5
+
+    if config['checks'].get('friends_count', False):
+        friends_count = check_friends_count(user_data['token'])
+        score += friends_count * 2
+
+    if config['checks'].get('guilds_count', False):
+        guilds_count = check_guilds_count(user_data['token'])
+        score += guilds_count * 2
+
+ 
+    user_id = user_data.get('id')
+    if user_id:
+        creation_year = extract_creation_year(user_id)
+        account_age = current_year - creation_year
+        if account_age > 0:
+            score += account_age * 3  
+
+    return score
+
 def save_tokens_to_file(tokens, filename):
     with open(filename, "w", encoding="utf-8") as file:
         for token in tokens:
@@ -237,7 +286,7 @@ def extract_creation_year(user_id):
     creation_date = datetime.datetime.utcfromtimestamp(timestamp / 1000)
     return creation_date.year
 
-def check_token(token, proxy=None):
+def check_token(token, proxy=None, config=None):
     global valid_tokens_count, invalid_tokens_count, nitro_count, billing_info_count, friend_count_total, guilds_count_total
 
     headers = {
@@ -253,7 +302,8 @@ def check_token(token, proxy=None):
             creation_year = extract_creation_year(user_id)
             premium_type = user_data.get('premium_type', 0)
             public_flags = user_data.get('public_flags', 0)
-
+            user_data['token'] = token
+            score = calculate_score(user_data, config)
             config = load_config()  
 
             verification = check_token_verification(token, proxy) if config['checks'].get('verification', False) else "Not Checked"
@@ -280,7 +330,8 @@ def check_token(token, proxy=None):
             flags += f"Friends Count: {friends_count} | " if config['checks'].get('friends_count', False) else ""
             flags += f"Guilds Count: {guilds_count}" if config['checks'].get('guilds_count', False) else ""
 
-            results.append((token, flags))
+            results.append((token, flags, score))
+
 
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
                   f'[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {flags}')
@@ -303,11 +354,15 @@ def check_token(token, proxy=None):
         print(f"Error in check_token: {e}")
     return token, "Error"
 
-
+def sort_results(results, sort_by_worth):
+    if sort_by_worth:
+        return sorted(results, key=lambda x: x[2], reverse=True)
+    return results
 
 
 
 def main():
+    global config
     os.system("Title Token checker discord.gg/nekito")
     print(Fore.LIGHTMAGENTA_EX + '''
  
@@ -325,8 +380,10 @@ def main():
         discord.gg/nekito
     ''' + Fore.RESET)
 
-    config = load_config()
- 
+    config = load_config() 
+
+    sort_by_worth = config.get('sort_by_worth', False)
+
     with open("tokens.txt", "r") as file:
         tokens = file.readlines()
 
@@ -337,10 +394,10 @@ def main():
     tokens_per_thread = total_tokens // num_threads
 
     def check_tokens_worker(start, end):
-        for i in range(start, end):
-            token = tokens[i]
-            result = check_token(token)
-            time.sleep(sleep_num) 
+     for i in range(start, end):
+        token = tokens[i]
+        result = check_token(token, config=config) 
+        time.sleep(sleep_num)
 
     threads = []
     for i in range(num_threads):
@@ -353,8 +410,10 @@ def main():
     for thread in threads:
         thread.join()
 
+    results_sorted = sort_results(results, sort_by_worth)
+
     with open("results.txt", "w", encoding="utf-8") as file:
-        for token, flags in results:
+        for token, flags, _ in results_sorted:
             file.write(f"{token} | {flags}\n")
 
     save_gifts_to_file(gifts, "gifts.txt")
