@@ -103,17 +103,29 @@ def check_billing_info(token, proxy):
     
     if response.status_code == 200:
         data = response.json()
-        if not data: 
+        if not data:  
             return []  
         
         payment_methods = []
         for source in data:
-            brand = source.get('brand', 'Unknown').title()
+            brand_type = source.get('type', None)
+            if brand_type == 2: 
+                brand = 'PayPal'
+            else if brand_type == 7:
+                brand = 'PaySafeCard'
+            else:
+                brand = source.get('brand', 'Unknown').title()
+
             invalid = source.get('invalid', False)
             payment_methods.append(f"{brand} {'Invalid' if invalid else 'Valid'}")
         return payment_methods
     return [] 
 
+
+def save_gifts_to_file(gifts, filename):
+    with open(filename, "w", encoding="utf-8") as file:
+        for gift in gifts:
+            file.write(f"Code: {gift['code']} | Style: {gift['style']} | Name: {gift['name']}\n")
 
 
 def check_gifts(token, proxy=None):
@@ -124,14 +136,29 @@ def check_gifts(token, proxy=None):
         response = requests.get('https://discord.com/api/v9/users/@me/entitlements/gifts?country_code=PL', headers=headers, proxies=proxy)
         if response.status_code == 200:
             data = response.json()
-            gift_codes = [gift['code'] for gift in data]
-            gifts.extend(gift_codes)
-            return gift_codes
+            gift_details = []
+            for gift in data:
+                gift_code = gift.get('id')  #
+                gift_style = gift.get('gift_style') 
+                sku = gift.get('sku', {})
+                gift_name = sku.get('name', 'Unknown') 
+                
+                if gift_code:
+                    gift_details.append({
+                        'code': gift_code,
+                        'style': gift_style,
+                        'name': gift_name
+                    })
+            
+            gifts.extend(gift_details)
+            return gift_details
         else:
             return []
     except requests.RequestException as e:
         print(f"Error in check_gifts: {e}")
         return []
+
+
 
 def check_promos(token, proxy=None):
     headers = {
@@ -194,7 +221,7 @@ def check_token(token, proxies=None):
             verification = check_token_verification(token, proxy)
             boosts = check_boosts(token, proxy)
             payment_methods = check_billing_info(token, proxy)
-            billing_info_count = len(payment_methods)  # Update billing_info_count correctly
+            billing_info_count = len(payment_methods)  # ekkoree iq count (max 1)
             billing_info_display = billing_info_count if billing_info_count > 0 else 0
             gift_codes = check_gifts(token, proxy)
             promo_codes = check_promos(token, proxy)
@@ -288,11 +315,8 @@ def main():
     with open("results.txt", "w", encoding="utf-8") as file:
         for result in results:
             file.write(f"{result}\n")
-
-    with open("gifts.txt", "w", encoding="utf-8") as file:
-        for gift in gifts:
-            file.write(f"{gift}\n")
-
+            
+    save_gifts_to_file(gifts, "gifts.txt")
     save_promos_to_file(promos, "promos.txt")
 
     print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}")
