@@ -252,25 +252,26 @@ def check_token(token, proxy=None):
                 nitro_count += 1
 
         
-            result =  ""
-            result += f"Verification: {verification} | " if config['checks'].get('verification', False) else ""
-            result += f"Boosts: {boosts} | " if config['checks'].get('boosts', False) else ""
-            result += f"Nitro: {nitro} | " if config['checks'].get('nitro', False) else ""
-            result += f"Creation Year: {creation_year} | " if config['checks'].get('creation_year', False) else ""
-            result += f"Billing Info: {billing_info_display} ({', '.join(payment_methods) if payment_methods else 'None'}) | " if config['checks'].get('billing_info', False) else ""
-            result += f"Gifts: {len(gift_codes)} | " if config['checks'].get('gifts', False) else ""
-            result += f"Promos: {len(promo_codes)} | " if config['checks'].get('promos', False) else ""
-            result += f"Friends Count: {friends_count}" if config['checks'].get('friends_count', False) else ""
+            flags = ""
+            flags += f"Verification: {verification} | " if config['checks'].get('verification', False) else ""
+            flags += f"Boosts: {boosts} | " if config['checks'].get('boosts', False) else ""
+            flags += f"Nitro: {nitro} | " if config['checks'].get('nitro', False) else ""
+            flags += f"Creation Year: {creation_year} | " if config['checks'].get('creation_year', False) else ""
+            flags += f"Billing Info: {billing_info_display} ({', '.join(payment_methods) if payment_methods else 'None'}) | " if config['checks'].get('billing_info', False) else ""
+            flags += f"Gifts: {len(gift_codes)} | " if config['checks'].get('gifts', False) else ""
+            flags += f"Promos: {len(promo_codes)} | " if config['checks'].get('promos', False) else ""
+            flags += f"Friends Count: {friends_count}" if config['checks'].get('friends_count', False) else ""
 
-            results.append(result)
+            results.append((token, flags))
 
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
-                  f'[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {result}')
-            return token, verification, boosts, nitro, creation_year, billing_info_display, gift_codes, promo_codes, friends_count
+                  f'[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {flags}')
+            return token, flags
         elif response.status_code == 401:
             invalid_tokens_count += 1
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
                   f'[{Fore.RED}INVALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+            return token, "Invalid"
         elif response.status_code == 429:  # Rate limited
             retry_after = response.json().get("retry_after", 0)
             print(f'{lc} {Fore.LIGHTBLUE_EX}Token={Fore.WHITE}{token[:20]}...{Fore.RESET} is rate limited. Retrying after {retry_after} seconds...')
@@ -279,9 +280,11 @@ def check_token(token, proxy=None):
         else:
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
                   f'[{Fore.RED}ERROR{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+            return token, "Error"
     except requests.RequestException as e:
         print(f"Error in check_token: {e}")
-    return None
+    return token, "Error"
+
 
 
 
@@ -331,9 +334,10 @@ def main():
     for thread in threads:
         thread.join()
 
+
     with open("results.txt", "w", encoding="utf-8") as file:
-        for result in results:
-            file.write(f"{result}\n")
+        for token, flags in results:
+            file.write(f"{token} | {flags}\n")
 
     save_gifts_to_file(gifts, "gifts.txt")
     save_promos_to_file(promos, "promos.txt")
