@@ -1,6 +1,6 @@
 # Discord Token Checker
 
-This script is designed to check the validity of Discord tokens, gather information about the account associated with each token, and save the results to various files. The script can use proxies for requests to avoid rate limiting.
+This script is designed to check discord tokens, gather information about the account associated with each token, and save the results to files. The script can use proxies for requests to avoid rate limiting.
 
 ## Features
 
@@ -77,3 +77,4 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 
 This script is for educational purposes only. The use of this script to access or use accounts without authorization is illegal and unethical.
 
+![xd](xd.png)
