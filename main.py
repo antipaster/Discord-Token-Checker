@@ -21,6 +21,8 @@ phone_verified_count = 0
 full_verified_count = 0
 billing_info_count = 0
 friend_count_total = 0
+guilds_count_total = 0
+
 
 results = []
 gifts = [] 
@@ -184,6 +186,21 @@ def check_promos(token, proxy=None):
         print(f"Error in check_promos: {e}")
         return []
 
+def check_guilds_count(token, proxy=None):
+    headers = {
+        'Authorization': token
+    }
+    try:
+        response = requests.get('https://discord.com/api/v9/users/@me/guilds', headers=headers, proxies=proxy)
+        if response.status_code == 200:
+            data = response.json()
+            return len(data)
+        return 0
+    except requests.RequestException as e:
+        print(f"Error in check_guilds_count: {e}")
+        return 0
+
+
 def check_friends_count(token, proxy=None):
     headers = {
         'Authorization': token
@@ -221,7 +238,7 @@ def extract_creation_year(user_id):
     return creation_date.year
 
 def check_token(token, proxy=None):
-    global valid_tokens_count, invalid_tokens_count, nitro_count, billing_info_count, friend_count_total
+    global valid_tokens_count, invalid_tokens_count, nitro_count, billing_info_count, friend_count_total, guilds_count_total
 
     headers = {
         'Authorization': token
@@ -246,12 +263,12 @@ def check_token(token, proxy=None):
             gift_codes = check_gifts(token, proxy) if config['checks'].get('gifts', False) else []
             promo_codes = check_promos(token, proxy) if config['checks'].get('promos', False) else []
             friends_count = check_friends_count(token, proxy) if config['checks'].get('friends_count', False) else 0
+            guilds_count = check_guilds_count(token, proxy) if config['checks'].get('guilds_count', False) else 0
 
             nitro = "NITRO" if premium_type != 0 else "NO NITRO"
             if premium_type != 0:
                 nitro_count += 1
 
-        
             flags = ""
             flags += f"Verification: {verification} | " if config['checks'].get('verification', False) else ""
             flags += f"Boosts: {boosts} | " if config['checks'].get('boosts', False) else ""
@@ -260,7 +277,8 @@ def check_token(token, proxy=None):
             flags += f"Billing Info: {billing_info_display} ({', '.join(payment_methods) if payment_methods else 'None'}) | " if config['checks'].get('billing_info', False) else ""
             flags += f"Gifts: {len(gift_codes)} | " if config['checks'].get('gifts', False) else ""
             flags += f"Promos: {len(promo_codes)} | " if config['checks'].get('promos', False) else ""
-            flags += f"Friends Count: {friends_count}" if config['checks'].get('friends_count', False) else ""
+            flags += f"Friends Count: {friends_count} | " if config['checks'].get('friends_count', False) else ""
+            flags += f"Guilds Count: {guilds_count}" if config['checks'].get('guilds_count', False) else ""
 
             results.append((token, flags))
 
@@ -284,6 +302,7 @@ def check_token(token, proxy=None):
     except requests.RequestException as e:
         print(f"Error in check_token: {e}")
     return token, "Error"
+
 
 
 
@@ -334,7 +353,6 @@ def main():
     for thread in threads:
         thread.join()
 
-
     with open("results.txt", "w", encoding="utf-8") as file:
         for token, flags in results:
             file.write(f"{token} | {flags}\n")
@@ -342,7 +360,7 @@ def main():
     save_gifts_to_file(gifts, "gifts.txt")
     save_promos_to_file(promos, "promos.txt")
 
-    print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}{'Friends Count: ' + str(friend_count_total) if friend_count_total > 0 else ''}")
+    print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}{'Friends Count: ' + str(friend_count_total) if friend_count_total > 0 else ''}{'Guilds Count: ' + str(guilds_count_total) if guilds_count_total > 0 else ''}")
 
 main()
 input("")
