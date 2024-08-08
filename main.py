@@ -397,7 +397,7 @@ def main():
     tokens = [token.strip() for token in tokens]
     total_tokens = len(tokens)
     num_threads = int(input("Threads: "))
-    sleep_num = int(input("Sleep time for threads: "))
+    sleep_num = int(input("Delay time for threads: "))
     tokens_per_thread = total_tokens // num_threads
 
     def check_tokens_worker(start, end):
