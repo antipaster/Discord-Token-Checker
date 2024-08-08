@@ -391,7 +391,7 @@ def main():
 
     sort_by_worth = config.get('sort_by_worth', False)
 
-    with open("tokens.txt", "r") as file:
+    with open("tokens.txt", "r", encoding="utf-8") as file:
         tokens = file.readlines()
 
     tokens = [token.strip() for token in tokens]
