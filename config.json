@@ -1,0 +1,12 @@
+{
+    "checks": {
+        "verification": true,
+        "boosts": true,
+        "billing_info": true,
+        "gifts": true,
+        "promos": true,
+        "friends_count": true,
+        "nitro": true,
+        "creation_year": true
+    }
+}
