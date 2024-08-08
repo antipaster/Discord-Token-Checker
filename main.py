@@ -5,8 +5,11 @@ import os
 import time
 import datetime
 from itertools import cycle
+import json
 
+# clear 
 os.system("cls")
+
 lc = f"{Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.LIGHTMAGENTA_EX}+{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}"
 tokens = []
 valid_tokens_count = 0
@@ -16,12 +19,16 @@ unclaimed_count = 0
 mail_verified_count = 0
 phone_verified_count = 0
 full_verified_count = 0
-billing_info_count = 0 
+billing_info_count = 0
+friend_count_total = 0
 
 results = []
 gifts = [] 
 promos = [] 
 
+def load_config(filename='config.json'):
+    with open(filename, 'r') as file:
+        return json.load(file)
 
 def load_proxies(filename):
     with open(filename, "r") as file:
@@ -34,7 +41,7 @@ def load_proxies(filename):
         host, port = hostport.split(':')
         proxy_dict[proxy] = {
             "http": f"http://{username}:{password}@{host}:{port}",
-            "https": f"http://{username}:{password}@{host}:{port}"  # hard codded 
+            "https": f"http://{username}:{password}@{host}:{port}"  # hard coded
         }
     return proxy_dict
 
@@ -83,7 +90,7 @@ def check_boosts(token, proxy=None):
         response = requests.get('https://discord.com/api/v9/users/@me/guilds/premium/subscription-slots', headers=headers, proxies=proxy)
         if response.status_code == 200:
             data = response.json()
-            if data: 
+            if data:
                 cooldown_count = sum(1 for entry in data if entry.get('cooldown_ends_at') is not None)
                 boosts = 2 - int(cooldown_count)
                 return boosts
@@ -94,39 +101,36 @@ def check_boosts(token, proxy=None):
     except requests.RequestException as e:
         print(f"Error in check_boosts: {e}")
         return 0
-def check_billing_info(token, proxy):
+
+def check_billing_info(token, proxy=None):
     headers = {
         'Authorization': token
     }
 
-    response = requests.get('https://discord.com/api/v9/users/@me/billing/payment-sources', headers=headers, proxies=proxy)
-    
-    if response.status_code == 200:
-        data = response.json()
-        if not data:  
-            return []  
-        
-        payment_methods = []
-        for source in data:
-            brand_type = source.get('type', None)
-            if brand_type == 2: 
-                brand = 'PayPal'
-            elif  brand_type == 7:
-                brand = 'PaySafeCard'
-            else:
-                brand = source.get('brand', 'Unknown').title()
+    try:
+        response = requests.get('https://discord.com/api/v9/users/@me/billing/payment-sources', headers=headers, proxies=proxy)
+        if response.status_code == 200:
+            data = response.json()
+            if not data:
+                return []
 
-            invalid = source.get('invalid', False)
-            payment_methods.append(f"{brand} {'Invalid' if invalid else 'Valid'}")
-        return payment_methods
-    return [] 
+            payment_methods = []
+            for source in data:
+                brand_type = source.get('type', None)
+                if brand_type == 2:
+                    brand = 'PayPal'
+                elif brand_type == 7:
+                    brand = 'PaySafeCard'
+                else:
+                    brand = source.get('brand', 'Unknown').title()
 
-
-def save_gifts_to_file(gifts, filename):
-    with open(filename, "w", encoding="utf-8") as file:
-        for gift in gifts:
-            file.write(f"Code: {gift['code']} | Style: {gift['style']} | Name: {gift['name']}\n")
-
+                invalid = source.get('invalid', False)
+                payment_methods.append(f"{brand} {'Invalid' if invalid else 'Valid'}")
+            return payment_methods
+        return []
+    except requests.RequestException as e:
+        print(f"Error in check_billing_info: {e}")
+        return []
 
 def check_gifts(token, proxy=None):
     headers = {
@@ -138,18 +142,18 @@ def check_gifts(token, proxy=None):
             data = response.json()
             gift_details = []
             for gift in data:
-                gift_code = gift.get('id')  #
-                gift_style = gift.get('gift_style') 
+                gift_code = gift.get('id')
+                gift_style = gift.get('gift_style')
                 sku = gift.get('sku', {})
-                gift_name = sku.get('name', 'Unknown') 
-                
+                gift_name = sku.get('name', 'Unknown')
+
                 if gift_code:
                     gift_details.append({
                         'code': gift_code,
                         'style': gift_style,
                         'name': gift_name
                     })
-            
+
             gifts.extend(gift_details)
             return gift_details
         else:
@@ -157,8 +161,6 @@ def check_gifts(token, proxy=None):
     except requests.RequestException as e:
         print(f"Error in check_gifts: {e}")
         return []
-
-
 
 def check_promos(token, proxy=None):
     headers = {
@@ -182,13 +184,30 @@ def check_promos(token, proxy=None):
         print(f"Error in check_promos: {e}")
         return []
 
+def check_friends_count(token, proxy=None):
+    headers = {
+        'Authorization': token
+    }
+    try:
+        response = requests.get('https://discord.com/api/v9/users/@me/relationships', headers=headers, proxies=proxy)
+        if response.status_code == 200:
+            data = response.json()
+            friends_count = len([friend for friend in data if friend.get('type') == 1])
+            return friends_count
+        return 0
+    except requests.RequestException as e:
+        print(f"Error in check_friends_count: {e}")
+        return 0
+
+def save_gifts_to_file(gifts, filename):
+    with open(filename, "w", encoding="utf-8") as file:
+        for gift in gifts:
+            file.write(f"Code: {gift['code']} | Style: {gift['style']} | Name: {gift['name']}\n")
 
 def save_promos_to_file(promos, filename):
     with open(filename, "w", encoding="utf-8") as file:
         for promo in promos:
             file.write(f"{promo['code']} | {promo['name']} | {promo['claimed_at']} | {promo['end_date']}\n")
-
-       
 
 def save_tokens_to_file(tokens, filename):
     with open(filename, "w", encoding="utf-8") as file:
@@ -201,10 +220,9 @@ def extract_creation_year(user_id):
     creation_date = datetime.datetime.utcfromtimestamp(timestamp / 1000)
     return creation_date.year
 
-def check_token(token, proxies=None):
-    global valid_tokens_count, invalid_tokens_count, nitro_count, billing_info_count
+def check_token(token, proxy=None):
+    global valid_tokens_count, invalid_tokens_count, nitro_count, billing_info_count, friend_count_total
 
-    proxy = get_proxy(proxies)
     headers = {
         'Authorization': token
     }
@@ -218,31 +236,37 @@ def check_token(token, proxies=None):
             creation_year = extract_creation_year(user_id)
             premium_type = user_data.get('premium_type', 0)
             public_flags = user_data.get('public_flags', 0)
-            verification = check_token_verification(token, proxy)
-            boosts = check_boosts(token, proxy)
-            payment_methods = check_billing_info(token, proxy)
-            billing_info_count = len(payment_methods)  # ekkoree iq count (max 1)
-            billing_info_display = billing_info_count if billing_info_count > 0 else 0
-            gift_codes = check_gifts(token, proxy)
-            promo_codes = check_promos(token, proxy)
+
+            config = load_config()  
+
+            verification = check_token_verification(token, proxy) if config['checks'].get('verification', False) else "Not Checked"
+            boosts = check_boosts(token, proxy) if config['checks'].get('boosts', False) else "Not Checked"
+            payment_methods = check_billing_info(token, proxy) if config['checks'].get('billing_info', False) else []
+            billing_info_display = len(payment_methods) if config['checks'].get('billing_info', False) else 0
+            gift_codes = check_gifts(token, proxy) if config['checks'].get('gifts', False) else []
+            promo_codes = check_promos(token, proxy) if config['checks'].get('promos', False) else []
+            friends_count = check_friends_count(token, proxy) if config['checks'].get('friends_count', False) else 0
+
             nitro = "NITRO" if premium_type != 0 else "NO NITRO"
             if premium_type != 0:
                 nitro_count += 1
 
-            result = (f"{token} | {verification} | Creation Year: {creation_year} | Nitro: {nitro} | Boosts: {boosts} | "
-                      f"Billing Info: {billing_info_display} ({', '.join(payment_methods) if payment_methods else 'None'}) | Gifts: {len(gift_codes)} | Promos: {len(promo_codes)}")
+        
+            result =  ""
+            result += f"Verification: {verification} | " if config['checks'].get('verification', False) else ""
+            result += f"Boosts: {boosts} | " if config['checks'].get('boosts', False) else ""
+            result += f"Nitro: {nitro} | " if config['checks'].get('nitro', False) else ""
+            result += f"Creation Year: {creation_year} | " if config['checks'].get('creation_year', False) else ""
+            result += f"Billing Info: {billing_info_display} ({', '.join(payment_methods) if payment_methods else 'None'}) | " if config['checks'].get('billing_info', False) else ""
+            result += f"Gifts: {len(gift_codes)} | " if config['checks'].get('gifts', False) else ""
+            result += f"Promos: {len(promo_codes)} | " if config['checks'].get('promos', False) else ""
+            result += f"Friends Count: {friends_count}" if config['checks'].get('friends_count', False) else ""
+
             results.append(result)
 
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
-                  f'[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
-                  f'[{Fore.BLUE}{boosts}_BOOSTS{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
-                  f'[{Fore.BLUE}{nitro}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
-                  f'[{Fore.BLUE}{verification}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
-                  f'[{Fore.BLUE}Creation Year: {creation_year}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
-                  f'[{Fore.BLUE}Billing Info: {billing_info_display} ({", ".join(payment_methods) if payment_methods else "None"}){Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}'
-                  f'{Fore.LIGHTBLACK_EX}{Style.BRIGHT}[{Fore.BLUE}Gifts: {len(gift_codes)}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}, {Fore.RESET}{Fore.LIGHTBLACK_EX}'
-                  f'{Style.BRIGHT}[{Fore.BLUE}Promos: {len(promo_codes)}{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
-            return token, verification, boosts, nitro, creation_year, billing_info_display, gift_codes, promo_codes
+                  f'[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {result}')
+            return token, verification, boosts, nitro, creation_year, billing_info_display, gift_codes, promo_codes, friends_count
         elif response.status_code == 401:
             invalid_tokens_count += 1
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
@@ -251,14 +275,13 @@ def check_token(token, proxies=None):
             retry_after = response.json().get("retry_after", 0)
             print(f'{lc} {Fore.LIGHTBLUE_EX}Token={Fore.WHITE}{token[:20]}...{Fore.RESET} is rate limited. Retrying after {retry_after} seconds...')
             time.sleep(retry_after)
-            return check_token(token, proxies)
+            return check_token(token, proxy)
         else:
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
                   f'[{Fore.RED}ERROR{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
     except requests.RequestException as e:
         print(f"Error in check_token: {e}")
     return None
-
 
 
 
@@ -280,28 +303,23 @@ def main():
         discord.gg/nekito
     ''' + Fore.RESET)
 
-    use_proxies = input("Do you want to use proxies? (y/n): ").strip().lower() == 'y'
-    time_till_check = float(input("Thread Sleep time: "))
-    if use_proxies:
-        proxies = load_proxies("proxies.txt")
-        proxy_pool = cycle(proxies.values())
-    else:
-        proxy_pool = None
-
+    config = load_config()
+ 
     with open("tokens.txt", "r") as file:
         tokens = file.readlines()
 
     tokens = [token.strip() for token in tokens]
-    num_threads = int(input("Threads: "))
     total_tokens = len(tokens)
+    num_threads = int(input("Threads: "))
+    sleep_num = int(input("Sleep time for threads: "))
     tokens_per_thread = total_tokens // num_threads
 
     def check_tokens_worker(start, end):
         for i in range(start, end):
             token = tokens[i]
-            result = check_token(token, proxy_pool)
-            time.sleep(time_till_check)
-        
+            result = check_token(token)
+            time.sleep(sleep_num) 
+
     threads = []
     for i in range(num_threads):
         start = i * tokens_per_thread
@@ -316,11 +334,11 @@ def main():
     with open("results.txt", "w", encoding="utf-8") as file:
         for result in results:
             file.write(f"{result}\n")
-            
+
     save_gifts_to_file(gifts, "gifts.txt")
     save_promos_to_file(promos, "promos.txt")
 
-    print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}")
+    print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}{'Friends Count: ' + str(friend_count_total) if friend_count_total > 0 else ''}")
 
 main()
 input("")
