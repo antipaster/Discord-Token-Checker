@@ -1,4 +1,3 @@
-# wdmo sigma discord.gg/nektio
 import threading
 import requests
 from colorama import Fore, Style
@@ -23,7 +22,7 @@ results = []
 gifts = [] 
 promos = [] 
 
-# Load proxies from file
+
 def load_proxies(filename):
     with open(filename, "r") as file:
         proxy_lines = file.readlines()
@@ -35,7 +34,7 @@ def load_proxies(filename):
         host, port = hostport.split(':')
         proxy_dict[proxy] = {
             "http": f"http://{username}:{password}@{host}:{port}",
-            "https": f"https://{username}:{password}@{host}:{port}"
+            "https": f"http://{username}:{password}@{host}:{port}"  # hard codded 
         }
     return proxy_dict
 
