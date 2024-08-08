@@ -111,7 +111,7 @@ def check_billing_info(token, proxy):
             brand_type = source.get('type', None)
             if brand_type == 2: 
                 brand = 'PayPal'
-            else if brand_type == 7:
+            elif  brand_type == 7:
                 brand = 'PaySafeCard'
             else:
                 brand = source.get('brand', 'Unknown').title()
