@@ -330,12 +330,18 @@ def check_token(token, proxy=None, config=None):
             flags += f"Friends Count: {friends_count} | " if config['checks'].get('friends_count', False) else ""
             flags += f"Guilds Count: {guilds_count}" if config['checks'].get('guilds_count', False) else ""
 
+           # lock check (@ekkoreerandom)
+            billing_response = requests.get('https://canary.discord.com/api/v9/users/@me/billing/payment-sources', headers=headers, proxies=proxy)
+            if billing_response.status_code == 403:
+                print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
+                      f'[{Fore.YELLOW}LOCKED{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET}')
+                return token, "Locked"
+
             results.append((token, flags, score))
-
-
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
                   f'[{Fore.GREEN}VALID{Style.BRIGHT}{Fore.LIGHTBLACK_EX}]{Fore.RESET} {flags}')
             return token, flags
+
         elif response.status_code == 401:
             invalid_tokens_count += 1
             print(f'{lc} {Fore.LIGHTBLUE_EX}token={Fore.WHITE}{token[:20]}...{Fore.RESET} Flags: {Fore.RESET}{Fore.LIGHTBLACK_EX}{Style.BRIGHT}'
@@ -353,6 +359,7 @@ def check_token(token, proxy=None, config=None):
     except requests.RequestException as e:
         print(f"Error in check_token: {e}")
     return token, "Error"
+
 
 def sort_results(results, sort_by_worth):
     if sort_by_worth:
@@ -419,7 +426,7 @@ def main():
     save_gifts_to_file(gifts, "gifts.txt")
     save_promos_to_file(promos, "promos.txt")
 
-    print(f"{lc}{Fore.GREEN} {'Valid Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}{'Friends Count: ' + str(friend_count_total) if friend_count_total > 0 else ''}{'Guilds Count: ' + str(guilds_count_total) if guilds_count_total > 0 else ''}")
+    print(f"{lc}{Fore.GREEN} {'Tokens: ' + str(valid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if valid_tokens_count > 0 else ''}{f'{Fore.RED}Invalid Tokens: ' + str(invalid_tokens_count) + f' {Fore.RESET}|{Fore.GREEN} ' if invalid_tokens_count > 0 else ''}{'Nitro: ' + str(nitro_count) + f' {Fore.RESET}|{Fore.GREEN} ' if nitro_count > 0 else ''}{'Unclaimed: ' + str(unclaimed_count) + f' {Fore.RESET}|{Fore.GREEN} ' if unclaimed_count > 0 else ''}{'Mail Verified: ' + str(mail_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if mail_verified_count > 0 else ''}{'Phone Verified: ' + str(phone_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if phone_verified_count > 0 else ''}{'Full Verified: ' + str(full_verified_count) + f' {Fore.RESET}|{Fore.GREEN} ' if full_verified_count > 0 else ''}{'Billing Info: ' + str(billing_info_count) if billing_info_count > 0 else ''}{'Friends Count: ' + str(friend_count_total) if friend_count_total > 0 else ''}{'Guilds Count: ' + str(guilds_count_total) if guilds_count_total > 0 else ''}")
 
 main()
 input("")
