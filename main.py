@@ -394,17 +394,18 @@ def main():
     with open("tokens.txt", "r") as file:
         tokens = file.readlines()
 
-    tokens = [token.strip() for token in tokens]
+
+    tokens = list(set(token.strip() for token in tokens))
     total_tokens = len(tokens)
     num_threads = int(input("Threads: "))
-    sleep_num = int(input("Delay time for threads: "))
+    sleep_num = int(input("Sleep time for threads: "))
     tokens_per_thread = total_tokens // num_threads
 
     def check_tokens_worker(start, end):
-     for i in range(start, end):
-        token = tokens[i]
-        result = check_token(token, config=config) 
-        time.sleep(sleep_num)
+        for i in range(start, end):
+            token = tokens[i]
+            result = check_token(token, config=config) 
+            time.sleep(sleep_num)
 
     threads = []
     for i in range(num_threads):
@@ -430,3 +431,4 @@ def main():
 
 main()
 input("")
+
